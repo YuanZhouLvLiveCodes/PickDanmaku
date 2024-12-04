@@ -15,15 +15,13 @@ import blivedm.models.open_live as open_live_models
 # 配置项
 TEST_ROOM_IDS = [
     8487238,
-    32736947,
-    23557863,
-    755663,
-    21652717,
-    1736192992,
+    # 32736947,
+    # 23557863,
+    # 755663,
+    # 21652717,
+    # 1736192992,
 ]  # 替换为你的直播间ID列表
-# SESSDATA = '88385bac%2C1748578218%2C41142%2Ac2CjDA1BmfJzir-hYzqoDgNr1QNJqa12HwMHgT9tq5MseqWdWtwbQ1eYVTrrDY_E6ynlkSVjR3U1NSdjFEUTBDTVMweGdCMU92d2tDRzBiQ2ZBcDBXQlM3b0xoM2dPWWNJMm9kWnBHajhZV0tsNHhnRWZSbEZ3SVpjVXZfWm5WYUZiZzM0V3Vqcy1BIIEC'  # 登录账号的SESSDATA（如需完整数据支持）
-SESSDATA = '22a46844%2C1743675378%2C21dbf%2Aa1CjDxAChqrj10x0hzjhyWMNgzi5MKCUPv2SwwB3VSXHupRQ7WxJbJxcvhCYbsq5m820wSVmpVSGdIbERpTnhvcjBteWZXYW42Wnl3eHE0RUtJQ3YyeF9lNnhKN09GV3lqYko2b3daN3F2WWplV0Jjb3lGVmFTZHAzUUNHVV91NmQ3aVUwQng1TFh3IIEC'  # 登录账号的SESSDATA（如需完整数据支持）
-
+SESSDATA = ''
 # 全局变量
 session: Optional[aiohttp.ClientSession] = None  # HTTP 会话
 websocket_clients_danmaku: Set[WebSocketResponse] = set()  # WebSocket 客户端列表
