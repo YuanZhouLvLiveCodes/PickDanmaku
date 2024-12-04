@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>弹幕</title>
+    <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+    <div id="messages"></div>
+    <div id="selectedMessage">Done</div>
+
+    <script>
+        let ws;
+        let sendWebSocket;
+
+        (function reloadWs() {
+            ws = new WebSocket('ws://mc.mineserv.cn:8081/ws');
+                ws.onopen = () => {
+                console.log("Base", 'WebSocket 连接成功');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(JSON.parse(event.data));
+                const face = document.createElement('img');
+                face.src = `/face/${data.uid}`
+                face.style.borderRadius = '99999px';
+                face.style.width = '50px';
+                const messagesDiv = document.getElementById('messages');
+                const message = document.createElement('div');
+                message.className = data.type;
+                const spanElement = document.createElement('span');
+                spanElement.textContent = data.uname;
+                message.onclick = () => {
+                    sendWebSocket.send(JSON.stringify(data))
+                };
+
+                if (data.type === 'danmaku') {
+                    spanElement.textContent = `[弹幕] ${data.uname}: ${data.msg}`;
+                    // 添加点击事件，点击时在右侧显示弹幕内容
+                } else if (data.type === 'gift') {
+                    spanElement.textContent = `[礼物] ${data.uname} 赠送 ${data.gift_name} x${data.num}`;
+                }
+
+                message.appendChild(face);
+                message.appendChild(spanElement);
+                messagesDiv.appendChild(message);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                console.log("Base", spanElement.textContent)
+            };
+
+            ws.onclose = () => {
+                console.log("Base", 'WebSocket 连接已关闭');
+                //尝试重连
+                setTimeout(reloadWs, 500)
+            };
+        })();
+
+        (function reloadCurrentWs() {
+            sendWebSocket = new WebSocket('ws://mc.mineserv.cn:8081/currentWs');
+            sendWebSocket.onopen = () => {
+                console.log("Current", 'WebSocket 连接成功');
+            };
+
+            sendWebSocket.onclose = () => {
+                console.log("Current", 'WebSocket 连接已关闭');
+                //尝试重连
+                setTimeout(reloadCurrentWs, 500)
+            };
+            sendWebSocket.onmessage = (event) => {
+                const data = JSON.parse(JSON.parse(event.data));
+                document.getElementById('selectedMessage').textContent = `[弹幕] ${data.uname}: ${data.msg}`;
+            }
+        })();
+
+    </script>
+</body>
+</html>

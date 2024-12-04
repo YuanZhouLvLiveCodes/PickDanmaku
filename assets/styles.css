@@ -1,0 +1,128 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  display: flex;
+  justify-content: space-between;
+}
+
+#messages {
+  border: 1px solid #ccc;
+  padding: 10px;
+  height: 400px;
+  overflow-y: auto;
+  background-color: #f9f9f9;
+  width: 60%;
+}
+
+#selectedMessage {
+  border: 1px solid #ccc;
+  padding: 20px;
+  background-color: #fff;
+  width: 35%;
+  height: 400px;
+  overflow-y: auto;
+}
+
+.danmaku {
+  color: #333;
+  padding: 5px;
+  margin: 5px 0;
+  transition: box-shadow 0.3s;
+}
+
+.danmaku:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.gift {
+  color: #f39c12;
+}
+
+#selectedMessageDisplay {
+  position: relative;
+}
+#selectedMessageDisplay .selectedDanmaku {
+  display: flex;
+  margin: 30px 10px;
+  position: absolute;
+  top: 0;
+}
+#selectedMessageDisplay .selectedDanmaku .left {
+  --face-size: 50px;
+}
+#selectedMessageDisplay .selectedDanmaku .left .face {
+  width: var(--face-size);
+  height: var(--face-size);
+  border: #000000 solid 2px;
+  border-radius: 99999px;
+}
+#selectedMessageDisplay .selectedDanmaku .left .face img {
+  border-radius: 99999px;
+  width: var(--face-size);
+  height: var(--face-size);
+}
+#selectedMessageDisplay .selectedDanmaku .right {
+  position: relative;
+  min-width: 300px;
+  margin: 0 0 0 20px;
+}
+#selectedMessageDisplay .selectedDanmaku .right .uname {
+  --uname-size: 14px;
+  --uname-color-fg: #0000aa;
+  --uname-color-bg: #0eb2b0;
+  --uname-color-border: #12cbc9;
+  font-size: var(--uname-size);
+  display: inline;
+  position: absolute;
+  color: var(--uname-color-fg);
+  background-color: var(--uname-color-bg);
+  top: -8px;
+  left: 2px;
+  border: var(--uname-color-border) solid 1px;
+  border-radius: 3px;
+  padding: 1px 5px;
+  z-index: 10;
+}
+#selectedMessageDisplay .selectedDanmaku .right .content {
+  --content-color-fg: red;
+  --content-color-bg: #0eb2b0;
+  position: absolute;
+  color: var(--content-color-fg);
+  background-color: var(--content-color-bg);
+  top: 10px;
+  border: var(--content-color-bg) solid 1px;
+  border-radius: 5px;
+  padding: 10px 20px;
+  z-index: 9;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(100px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100px);
+  }
+}
+.fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.fadeOut {
+  animation: fadeOut 0.5s ease-out;
+}
+
+/*# sourceMappingURL=styles.css.map */
