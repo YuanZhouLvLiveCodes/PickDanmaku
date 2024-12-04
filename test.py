@@ -25,7 +25,7 @@ import blivedm.models.open_live as open_live_models
 # ]  # 替换为你的直播间ID列表
 # SESSDATA = ''
 
-from sessdata import SESSDATA, TEST_ROOM_IDS
+from config import SESSDATA, TEST_ROOM_IDS
 
 # endregion
 # 全局变量
