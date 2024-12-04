@@ -13,15 +13,21 @@ import blivedm.models.web as web_models
 import blivedm.models.open_live as open_live_models
 
 # 配置项
-TEST_ROOM_IDS = [
-    8487238,
-    # 32736947,
-    # 23557863,
-    # 755663,
-    # 21652717,
-    # 1736192992,
-]  # 替换为你的直播间ID列表
-SESSDATA = ''
+# region config
+
+# TEST_ROOM_IDS = [
+#     8487238,
+#     # 32736947,
+#     # 23557863,
+#     # 755663,
+#     # 21652717,
+#     # 1736192992,
+# ]  # 替换为你的直播间ID列表
+# SESSDATA = ''
+
+from sessdata import SESSDATA, TEST_ROOM_IDS
+
+# endregion
 # 全局变量
 session: Optional[aiohttp.ClientSession] = None  # HTTP 会话
 websocket_clients_danmaku: Set[WebSocketResponse] = set()  # WebSocket 客户端列表
@@ -81,7 +87,6 @@ class Gift(Info):
     type: str = "gift"
     gift_name: str = None
     num: int = None
-
 
 
 # 初始化 HTTP 会话
@@ -281,6 +286,7 @@ class DanmakuHandler(blivedm.BaseHandler):
         })
         print(f'[礼物] {data}')
         await broadcast(data, websocket_clients_danmaku)
+
 
 # 自定义弹幕处理器
 # class CurrentHandler(blivedm.BaseHandler):
