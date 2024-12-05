@@ -1,11 +1,16 @@
+@charset "UTF-8";
 body {
   font-family: Arial, sans-serif;
   margin: 20px;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-#messages {
+#base {
+  display: flex;
+}
+#base #messages {
   border: 1px solid #ccc;
   padding: 10px;
   height: 400px;
@@ -13,30 +18,99 @@ body {
   background-color: #f9f9f9;
   width: 60%;
 }
-
-#selectedMessage {
-  border: 1px solid #ccc;
-  padding: 20px;
-  background-color: #fff;
-  width: 35%;
-  height: 400px;
-  overflow-y: auto;
-}
-
-.danmaku {
+#base #messages .danmaku {
   color: #333;
   padding: 5px;
   margin: 5px 0;
   transition: box-shadow 0.3s;
+  display: flex;
 }
-
-.danmaku:hover {
+#base #messages .danmaku:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   cursor: pointer;
 }
-
-.gift {
+#base #messages .danmaku .left .face {
+  border-radius: 99999px;
+  width: 50px;
+}
+#base #messages .danmaku .right {
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+}
+#base #messages .gift {
   color: #f39c12;
+  display: flex;
+}
+#base #messages .gift .left .face {
+  border-radius: 99999px;
+  width: 50px;
+}
+#base #messages .gift .right {
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+}
+#base #baseRight {
+  background-color: #fff;
+  width: 35%;
+  height: 400px;
+}
+#base #baseRight #selectedMessage {
+  border: 1px solid #ccc;
+  padding: 20px;
+  background-color: #fff;
+  width: 100%;
+  height: 179px;
+  overflow-y: auto;
+}
+#base #baseRight .sendDefault {
+  width: 100%;
+  height: 159px;
+  padding: 20px;
+  border: #333333 solid 1px;
+  --input-width: 40%;
+}
+#base #baseRight .sendDefault:before {
+  content: "模拟选择";
+}
+#base #baseRight .sendDefault .sendDanmaku {
+  margin: 5px 0;
+}
+#base #baseRight .sendDefault .sendDanmaku #sendDanmakuText {
+  width: var(--input-width);
+}
+#base #baseRight .sendDefault .sendDanmaku #sendDanmakuButton {
+  border: #038503 solid 1px;
+  border-radius: 5px;
+  background-color: #03b903;
+}
+#base #baseRight .sendDefault .sendGift {
+  --gift-num-width: 30px;
+  --times-width: 9px;
+  margin: 5px 0;
+}
+#base #baseRight .sendDefault .sendGift #sendGiftText {
+  width: calc(var(--input-width) - var(--gift-num-width) - 16px - var(--times-width));
+}
+#base #baseRight .sendDefault .sendGift .times {
+  width: var(--times-width);
+}
+#base #baseRight .sendDefault .sendGift .times:before {
+  content: "x";
+}
+#base #baseRight .sendDefault .sendGift #sendGiftNum {
+  width: var(--gift-num-width);
+}
+#base #baseRight .sendDefault .sendGift #sendGiftButton {
+  border: #038503 solid 1px;
+  border-radius: 5px;
+  background-color: #03b903;
+}
+#base #baseRight .sendDefault #sendButton {
+  border: #038503 solid 1px;
+  border-radius: 5px;
+  background-color: #03b903;
 }
 
 #selectedMessageDisplay {
@@ -95,6 +169,8 @@ body {
   border-radius: 5px;
   padding: 10px 20px;
   z-index: 9;
+  max-width: 280px;
+  word-break: break-all;
 }
 
 @keyframes fadeIn {

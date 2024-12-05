@@ -7,8 +7,26 @@
     <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
-    <div id="messages"></div>
-    <div id="selectedMessage">Done</div>
+    <div id="base">
+        <div id="messages"></div>
+        <div id="baseRight">
+<!--            <div id="selectedMessage">Done</div>-->
+            <iframe id="selectedMessage" src="/display" frameborder="0"></iframe>
+            <div class="sendDefault">
+                <div class="sendDanmaku">
+                    <input type="text" id="sendDanmakuText" placeholder="自定义弹幕内容">
+                    <button id="sendDanmakuButton">发送弹幕</button>
+                </div>
+                <div class="sendGift">
+                    <input type="text" id="sendGiftText" placeholder="自定义礼物内容">
+                    <span class="times"></span>
+                    <input type="number" id="sendGiftNum" placeholder="礼物数量" value="1">
+                    <button id="sendGiftButton">发送礼物</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         let ws;
@@ -22,31 +40,39 @@
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(JSON.parse(event.data));
+                const leftDiv = document.createElement('div');
+                leftDiv.className = 'left';
+                const rightDiv = document.createElement('div');
+                rightDiv.className = 'right';
                 const face = document.createElement('img');
+                face.classList.add('face');
                 face.src = `/face/${data.uid}`
-                face.style.borderRadius = '99999px';
-                face.style.width = '50px';
                 const messagesDiv = document.getElementById('messages');
                 const message = document.createElement('div');
                 message.className = data.type;
-                const spanElement = document.createElement('span');
-                spanElement.textContent = data.uname;
+                const spanElementRoomInfo = document.createElement('span');
+                spanElementRoomInfo.textContent = `[${data.platform_name}·${data.room_uname}] ${data.room_title}`;
+                const spanElementData = document.createElement('span');
+                spanElementData.textContent = data.uname;
                 message.onclick = () => {
                     sendWebSocket.send(JSON.stringify(data))
                 };
 
                 if (data.type === 'danmaku') {
-                    spanElement.textContent = `[弹幕] ${data.uname}: ${data.msg}`;
+                    spanElementData.textContent = `[弹幕] ${data.uname}：${data.msg}`;
                     // 添加点击事件，点击时在右侧显示弹幕内容
                 } else if (data.type === 'gift') {
-                    spanElement.textContent = `[礼物] ${data.uname} 赠送 ${data.gift_name} x${data.num}`;
+                    spanElementData.textContent = `[礼物] ${data.uname} 赠送 ${data.gift_name} x${data.num}`;
                 }
+                rightDiv.append(spanElementRoomInfo)
+                rightDiv.append(spanElementData)
 
-                message.appendChild(face);
-                message.appendChild(spanElement);
+                leftDiv.append(face);
+                message.appendChild(leftDiv);
+                message.appendChild(rightDiv);
                 messagesDiv.appendChild(message);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                console.log("Base", spanElement.textContent)
+                console.log("Base", spanElementData.textContent)
             };
 
             ws.onclose = () => {
@@ -67,12 +93,34 @@
                 //尝试重连
                 setTimeout(reloadCurrentWs, 500)
             };
-            sendWebSocket.onmessage = (event) => {
-                const data = JSON.parse(JSON.parse(event.data));
-                document.getElementById('selectedMessage').textContent = `[弹幕] ${data.uname}: ${data.msg}`;
-            }
+            // sendWebSocket.onmessage = (event) => {
+            //     const data = JSON.parse(JSON.parse(event.data));
+            //     const selectedMessage =  document.getElementById('selectedMessage')
+            //     if (data.type === 'danmaku') {
+            //         selectedMessage.textContent = `[弹幕] ${data.uname}：${data.msg}`;
+            //         // 添加点击事件，点击时在右侧显示弹幕内容
+            //     } else if (data.type === 'gift') {
+            //         selectedMessage.textContent = `[礼物] ${data.uname} 赠送 ${data.gift_name} x${data.num}`;
+            //     }
+            // }
         })();
 
+        document.getElementById('sendDanmakuButton').onclick = () => {
+            const text = document.getElementById('sendDanmakuText').value;
+            if (text === "") {
+                return
+            }
+            sendWebSocket.send(JSON.stringify({type: 'danmaku', msg: text, uid: "noface", uname: "圆周率弹幕系统"}));
+        }
+
+        document.getElementById('sendGiftButton').onclick = () => {
+            const num = document.getElementById('sendGiftNum').value || 1;
+            const gift = document.getElementById('sendGiftText').value;
+            if (gift === "") {
+                return
+            }
+            sendWebSocket.send(JSON.stringify({type: 'gift', gift_name: gift, num: num, uid: "noface", uname: "圆周率弹幕系统"}));
+        }
     </script>
 </body>
 </html>
