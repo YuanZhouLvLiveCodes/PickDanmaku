@@ -1,4 +1,6 @@
 import json
+import logging
+import logging.handlers
 import os
 import asyncio
 import time
@@ -15,6 +17,41 @@ from dataclasses import dataclass, asdict
 
 import blivedm.models.web as web_models
 import blivedm.models.open_live as open_live_models
+from blivedm.handlers import logged_unknown_cmds
+
+
+
+
+
+
+
+# 创建日志器
+logger = logging.getLogger("yzl_danmaku_logger")
+logger.setLevel(logging.DEBUG)
+
+# 存到logs/{时间日期}.log
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+log_file = os.path.join('logs', time.strftime('%Y-%m-%d %H-%M-%S', time.localtime()) + '.log')
+
+# 创建文件处理器并设置编码为 UTF-8
+file_handler = logging.FileHandler(log_file, encoding="utf-8")
+file_handler.setLevel(logging.DEBUG)
+
+# 创建日志格式
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(formatter)
+
+# 添加处理器到日志器
+logger.addHandler(file_handler)
+
+
+
+from builtins import print as _print
+
+def print(*args, **kwargs):
+    _print(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), *args, **kwargs)
+    logger.info(*args, **kwargs)
 
 # 配置项
 # region config
@@ -52,9 +89,8 @@ HTTP_PORT = 8081
 HTTP_SCHEME = 'http'
 
 
-
 @dataclass
-class Info:
+class Message:
     """
         data = {
             "type": "danmaku",
@@ -71,6 +107,9 @@ class Info:
     room_title: str = None
     room_uid: str = None
     room_uname: str = None
+    msg: str = None
+    data: dict = None
+    message: str = None
 
     def __str__(self):
         data = asdict(self)
@@ -80,7 +119,15 @@ class Info:
 
 
 @dataclass
-class Danmaku(Info):
+class Command(Message):
+    type: str = "command"
+    room_id: int = None
+    original_data: dict = None
+    cmd: str = None
+
+
+@dataclass
+class Danmaku(Message):
     """
         data = {
             "type": "danmaku",
@@ -94,7 +141,7 @@ class Danmaku(Info):
 
 
 @dataclass
-class Gift(Info):
+class Gift(Message):
     """
     data = {
             "type": "gift",
@@ -110,7 +157,7 @@ class Gift(Info):
 
 
 @dataclass
-class BuyGuard(Info):
+class BuyGuard(Message):
     """
         data = {
             "room_id": client.room_id,
@@ -132,7 +179,7 @@ class BuyGuard(Info):
 
 
 @dataclass
-class SuperChat(Info):
+class SuperChat(Message):
     """
     data = {
             "type": "superchat",
@@ -443,7 +490,8 @@ async def handle_current(request):
 
 # 运行多个 B站直播间的弹幕监听
 async def run_blive_clients():
-    danmaku_clients = [blivedm.BLiveClient(room_id, session=session) for room_id in ROOM_INFOS.get("bilibili", {"": {}}).keys()]
+    danmaku_clients = [blivedm.BLiveClient(room_id, session=session) for room_id in
+                       ROOM_INFOS.get("bilibili", {"": {}}).keys()]
     danmaku_handler = DanmakuHandler()
     # current_handler = CurrentHandler()
 
@@ -547,7 +595,52 @@ class DanmakuHandler(blivedm.BaseHandler):
         print(f'[上舰] {data}')
         await broadcast(data, websocket_clients_danmaku)
 
-async def broadcast(message: Info, websocket_clients: Set[WebSocketResponse]):
+    def handle(self, client: blivedm.BLiveClient, command: dict):
+        cmd = command.get('cmd', '')
+        pos = cmd.find(':')  # 2019-5-29 B站弹幕升级新增了参数
+        if pos != -1:
+            cmd = cmd[:pos]
+
+        if cmd not in self._CMD_CALLBACK_DICT:
+            # 调度异步任务
+            if cmd not in [
+                "STOP_LIVE_ROOM_LIST",
+                "WIDGET_BANNER"
+            ]:
+                asyncio.create_task(self.handle_others(client, command))
+            # 只有第一次遇到未知cmd时打日志
+            if cmd not in logged_unknown_cmds:
+                print('room=%d unknown cmd=%s, command=%s' % (client.room_id, cmd, command))
+                logged_unknown_cmds.add(cmd)
+            return
+
+        callback = self._CMD_CALLBACK_DICT[cmd]
+        if callback is not None:
+            callback(self, client, command)
+
+    async def handle_others(self, client: blivedm.BLiveClient, command: dict):
+        room_info = await get_room_info(client.room_id, "bilibili")
+        data: Command = Command(**{
+            "room_id": client.room_id,
+            "room_uname": room_info["room_uname"],
+            "room_uid": room_info["room_uid"],
+            "room_title": room_info["room_title"],
+            "platform": "bilibili",
+            "original_data": command,
+            "cmd": command["cmd"],
+            "msg": command["cmd"],
+        })
+        if data.uid == "" or data.uid is None:
+            if data.cmd == "INTERACT_WORD":
+                data.uid = command["data"]["uid"]
+            else:
+                data.uid = data.room_uid
+
+        print(f'[其他] {data}')
+        await broadcast(data, websocket_clients_danmaku)
+
+
+async def broadcast(message: Message, websocket_clients: Set[WebSocketResponse]):
     """向所有 WebSocket 客户端广播消息"""
     if websocket_clients:
         payload = json.dumps(str(message))

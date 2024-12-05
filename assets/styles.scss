@@ -14,7 +14,7 @@ body {
         overflow-y: auto;
         background-color: #f9f9f9;
         width: 60%;
-        .danmaku {
+        .danmaku, .command {
             color: #333;
             padding: 5px;
             margin: 5px 0;
@@ -35,6 +35,10 @@ body {
                 display: flex;
                 flex-direction: column;
                 margin-left: 10px;
+                .rank {
+                    display: flex;
+                    flex-direction: column;
+                }
             }
         }
         .gift {
@@ -108,11 +112,33 @@ body {
                     background-color: #03b903;
                 }
             }
-            #sendButton {
-                border: #038503 solid 1px;
-                border-radius: 5px;
-                background-color: #03b903;
+            .sendGuard {
+                --guard-num-width: 30px;
+                --times-width: 9px;
+                margin: 5px 0;
+                #sendGuardText {
+                    width: calc(var(--input-width) - var(--guard-num-width) - 16px - var(--times-width));
+                }
+                .times {
+                    width: var(--times-width);
+                    &:before {
+                        content: "x";
+                    }
+                }
+                #sendGuardNum {
+                    width: var(--guard-num-width);
+                }
+                #sendGuardButton {
+                    border: #038503 solid 1px;
+                    border-radius: 5px;
+                    background-color: #03b903;
+                }
             }
+            //.sendButton {
+            //    border: #038503 solid 1px;
+            //    border-radius: 5px;
+            //    background-color: #03b903;
+            //}
         }
     }
 

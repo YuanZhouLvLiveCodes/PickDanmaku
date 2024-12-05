@@ -18,25 +18,29 @@ body {
   background-color: #f9f9f9;
   width: 60%;
 }
-#base #messages .danmaku {
+#base #messages .danmaku, #base #messages .command {
   color: #333;
   padding: 5px;
   margin: 5px 0;
   transition: box-shadow 0.3s;
   display: flex;
 }
-#base #messages .danmaku:hover {
+#base #messages .danmaku:hover, #base #messages .command:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   cursor: pointer;
 }
-#base #messages .danmaku .left .face {
+#base #messages .danmaku .left .face, #base #messages .command .left .face {
   border-radius: 99999px;
   width: 50px;
 }
-#base #messages .danmaku .right {
+#base #messages .danmaku .right, #base #messages .command .right {
   display: flex;
   flex-direction: column;
   margin-left: 10px;
+}
+#base #messages .danmaku .right .rank, #base #messages .command .right .rank {
+  display: flex;
+  flex-direction: column;
 }
 #base #messages .gift {
   color: #f39c12;
@@ -107,7 +111,24 @@ body {
   border-radius: 5px;
   background-color: #03b903;
 }
-#base #baseRight .sendDefault #sendButton {
+#base #baseRight .sendDefault .sendGuard {
+  --guard-num-width: 30px;
+  --times-width: 9px;
+  margin: 5px 0;
+}
+#base #baseRight .sendDefault .sendGuard #sendGuardText {
+  width: calc(var(--input-width) - var(--guard-num-width) - 16px - var(--times-width));
+}
+#base #baseRight .sendDefault .sendGuard .times {
+  width: var(--times-width);
+}
+#base #baseRight .sendDefault .sendGuard .times:before {
+  content: "x";
+}
+#base #baseRight .sendDefault .sendGuard #sendGuardNum {
+  width: var(--guard-num-width);
+}
+#base #baseRight .sendDefault .sendGuard #sendGuardButton {
   border: #038503 solid 1px;
   border-radius: 5px;
   background-color: #03b903;

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>弹幕</title>
     <link rel="stylesheet" href="assets/styles.css">
+    <script src="assets/formatString.js"></script>
 </head>
 <body>
     <div id="base">
@@ -23,6 +24,12 @@
                     <input type="number" id="sendGiftNum" placeholder="礼物数量" value="1">
                     <button id="sendGiftButton">发送礼物</button>
                 </div>
+                <div class="sendGuard">
+                    <input type="number" min="0" max="3" id="sendGuardText" placeholder="舰长类型">
+                    <span class="times"></span>
+                    <input type="number" id="sendGuardNum" placeholder="礼物数量" value="1">
+                    <button id="sendGuardButton">发送舰长</button>
+                </div>
             </div>
         </div>
     </div>
@@ -31,6 +38,9 @@
     <script>
         let ws;
         let sendWebSocket;
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        const debug = !!urlParams.get('debug');
 
         (function reloadWs() {
             ws = new WebSocket('ws://mc.mineserv.cn:8081/ws');
@@ -40,39 +50,155 @@
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(JSON.parse(event.data));
+                const platform_name = data.platform_name;
+                const platform = data["platform"];
                 const leftDiv = document.createElement('div');
                 leftDiv.className = 'left';
                 const rightDiv = document.createElement('div');
                 rightDiv.className = 'right';
                 const face = document.createElement('img');
                 face.classList.add('face');
-                face.src = `/face/${data.uid}`
+                face.src = `/face/${data.uid}/platform/${platform}`
                 const messagesDiv = document.getElementById('messages');
                 const message = document.createElement('div');
                 message.className = data.type;
                 const spanElementRoomInfo = document.createElement('span');
                 spanElementRoomInfo.textContent = `[${data.platform_name}·${data.room_uname}] ${data.room_title}`;
-                const spanElementData = document.createElement('span');
-                spanElementData.textContent = data.uname;
+                let spanOrDivElementData = document.createElement('span');
+                spanOrDivElementData.textContent = data.uname;
                 message.onclick = () => {
                     sendWebSocket.send(JSON.stringify(data))
                 };
+                if (platform === "bilibili") {
+                    if (data.type === 'danmaku') {
+                        spanOrDivElementData.textContent = `[弹幕] ${data.uname}：${data.msg}`;
+                        // 添加点击事件，点击时在右侧显示弹幕内容
+                    } else if (data.type === 'gift') {
+                        spanOrDivElementData.textContent = `[礼物] ${data.uname} 赠送 ${data.gift_name} x${data.num}`;
+                    } else if (data.type === 'superchat') {
+                        spanOrDivElementData.textContent = `[醒目留言] ${data.uname} 发送 ${data.price} 电池留言：${data.msg}`;
+                    } else if (data.type === 'buy_guard') {
+                        let guard_level_name = ""
+                        switch (data.guard_level) {
+                            case 1:
+                                guard_level_name = "总督";
+                                break;
+                            case 2:
+                                guard_level_name = "提督";
+                                break;
+                            case 3:
+                                guard_level_name = "舰长";
+                                break;
+                            default:
+                                guard_level_name = "非舰队";
+                        }
+                        spanOrDivElementData.textContent = `[上舰] ${data.uname} 上 ${guard_level_name} x${data.num}`;
+                    } else if (data.type === 'command') {
+                        /*
 
-                if (data.type === 'danmaku') {
-                    spanElementData.textContent = `[弹幕] ${data.uname}：${data.msg}`;
-                    // 添加点击事件，点击时在右侧显示弹幕内容
-                } else if (data.type === 'gift') {
-                    spanElementData.textContent = `[礼物] ${data.uname} 赠送 ${data.gift_name} x${data.num}`;
+                        [哔哩哔哩·圆周率也想学live2d] 【圆砸Kizune】今天我生日
+                        LIVE
+
+                        [哔哩哔哩·圆周率也想学live2d] 【圆砸Kizune】今天我生日
+                        ANCHOR_LOT_NOTICE
+
+                        [哔哩哔哩·圆周率也想学live2d] 【圆砸Kizune】今天我生日
+                        PREPARING
+
+                        [哔哩哔哩·圆周率也想学live2d] 【圆砸Kizune】今天我生日
+                        RANK_CHANGED
+                         */
+                        if (data.msg === "LIVE") {
+                            spanOrDivElementData.textContent = `[开始直播]`;
+                        } else if (data.msg === "PREPARING") {
+                            spanOrDivElementData.textContent = `[结束直播]`;
+                        } else if (data.msg === "ANCHOR_LOT_NOTICE") {
+                            spanOrDivElementData.textContent = `[抽奖通知] ${data.original_data.data.lottery_card.title} 抽奖`;
+                        } else if (data.msg === "ENTRY_EFFECT") {
+                            spanOrDivElementData.textContent = `[进入房间] ${removeFormatFlags(data.original_data.data.copy_writing, "<%", "%>")}`;
+                        } else if (data.msg === "INTERACT_WORD") {
+                            if (data.original_data.data.msg_type === 1) {
+                                spanOrDivElementData.textContent = `[进入房间] ${data.original_data.data.uinfo.base.name}`;
+                            } else if (data.original_data.data.msg_type === 2) {
+                                spanOrDivElementData.textContent = `[直播间关注] ${data.original_data.data.uinfo.base.name} 关注了你`;
+                            }
+                        }
+                        if (debug) {
+                             if (data.msg === "WATCHED_CHANGE") {
+                                spanOrDivElementData.textContent = `[房间人气] ${data.original_data.data.text_large}`;
+                            } else if (data.msg === "PK_BATTLE_PRE_NEW") {
+                                spanOrDivElementData.textContent = `[新PK对象] ${data.original_data.data.uname}`;
+                            } else if (data.msg === "PK_BATTLE_PRE") {
+                                spanOrDivElementData.textContent = `[PK对象] ${data.original_data.data.uname}`;
+                            } else if (data.msg === "PK_BATTLE_START_NEW") {
+                                spanOrDivElementData.textContent = `[准备PK]`;
+                            } else if (data.msg === "PK_BATTLE_START") {
+                                spanOrDivElementData.textContent = `[寻找PK对象]`;
+                            } else if (data.msg === "PK_BATTLE_PROCESS") {
+                                spanOrDivElementData.textContent = `[PK比分变化]
+                                本方${data.original_data.data.init_info.votes} 最佳助力：${data.original_data.data.init_info.best_uname}
+                                对方${data.original_data.data.match_info.votes} 最佳助力：${data.original_data.data.match_info.best_uname}
+                                结果：${data.original_data.data.init_info.votes > data.original_data.data.match_info.votes ? "本方领先" : (data.original_data.data.init_info.votes < data.original_data.data.match_info.votes ? "对方领先" : "打平")}`;
+                            } else if (data.msg === "PK_BATTLE_PROCESS_NEW") {
+                                spanOrDivElementData.textContent = `[PK中]
+                                本方${data.original_data.data.init_info.votes} 最佳助力：${data.original_data.data.init_info.best_uname}
+                                对方${data.original_data.data.match_info.votes} 最佳助力：${data.original_data.data.match_info.best_uname}
+                                结果：${data.original_data.data.init_info.votes > data.original_data.data.match_info.votes ? "本方领先" : (data.original_data.data.init_info.votes < data.original_data.data.match_info.votes ? "对方领先" : "打平")}`;
+                            } else if (data.msg === "PK_BATTLE_END") {
+                                spanOrDivElementData.textContent = `[PK结果]
+                                本方${data.original_data.data.init_info.votes} 最佳助力：${data.original_data.data.init_info.best_uname}
+                                对方${data.original_data.data.match_info.votes} 最佳助力：${data.original_data.data.match_info.best_uname}
+                                结果：${data.original_data.data.init_info.votes > data.original_data.data.match_info.votes ? "本方胜利" : (data.original_data.data.init_info.votes < data.original_data.data.match_info.votes ? "对方胜利" : "平局")}`;
+                            } else if (data.msg === "ONLINE_RANK_V2") {
+                                spanOrDivElementData = document.createElement('div');
+                                spanOrDivElementData.classList.add('rank')
+                                spanOrDivElementData.textContent = `[房间人气排名]`;
+                                for (const info of data.original_data.data.online_list) {
+                                    const spanElement = document.createElement('span');
+                                    spanElement.textContent = `${info.rank}. ${info.uname} ${info.score}分`;
+                                    spanOrDivElementData.appendChild(spanElement);
+                                }
+                            } else if (data.msg === "POPULAR_RANK_CHANGED") {
+                                spanOrDivElementData.textContent = `[人气榜变化]`;
+                            } else if (data.msg === "NOTICE_MSG") {
+                                const currentRoomId = data["room_id"]
+                                const noticeRoomId = data["original_data"]["roomid"]
+                                const noticeRealRoomId = data["original_data"]["real_roomid"]
+                                let isSelf =
+                                    currentRoomId === noticeRoomId ||
+                                    currentRoomId === noticeRealRoomId;
+                                let noticeContent = ""
+                                if (isSelf) {
+                                    noticeContent = data["original_data"]["msg_self"]
+                                } else {
+                                    noticeContent = data["original_data"]["msg_common"]
+                                }
+                                const linkUrl = data["original_data"]["link_url"]
+                                // newElement = createNoticeSingleElement(noticeContent)
+                                // newElement = createNoticeSingleLinkElement(noticeContent, linkUrl)
+
+                                spanOrDivElementData.textContent = `[广播] ${removeFormatFlags(noticeContent, "<%", "%>")}`;
+                            } else if (data.msg === "COMMON_NOTICE_DANMAKU") {
+                                spanOrDivElementData.textContent = `[弹幕公告] ${data.original_data.data.content_segments.map(segment => segment.text).join("<br />")}`;
+                            } else if (data.msg === "ONLINE_RANK_COUNT") {
+                                spanOrDivElementData.textContent = `[在线榜合计变动] 在线人气榜：${data.original_data.data.online_count} 贵宾：${data.original_data.data.count}`;
+                            } else if (data.msg === "PK_BATTLE_FINAL_PROCESS") {
+                                spanOrDivElementData.textContent = `[PK绝杀时刻]`;
+                            } else {
+                                spanOrDivElementData.textContent = data.msg || data.error || data.message || data.data;
+                            }
+                        }
+                    }
                 }
                 rightDiv.append(spanElementRoomInfo)
-                rightDiv.append(spanElementData)
+                rightDiv.append(spanOrDivElementData)
 
                 leftDiv.append(face);
                 message.appendChild(leftDiv);
                 message.appendChild(rightDiv);
                 messagesDiv.appendChild(message);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                console.log("Base", spanElementData.textContent)
+                console.log("Base", spanOrDivElementData.textContent)
             };
 
             ws.onclose = () => {
@@ -86,6 +212,7 @@
             sendWebSocket = new WebSocket('ws://mc.mineserv.cn:8081/currentWs');
             sendWebSocket.onopen = () => {
                 console.log("Current", 'WebSocket 连接成功');
+
             };
 
             sendWebSocket.onclose = () => {
@@ -120,6 +247,15 @@
                 return
             }
             sendWebSocket.send(JSON.stringify({type: 'gift', gift_name: gift, num: num, uid: "noface", uname: "圆周率弹幕系统"}));
+        }
+
+        document.getElementById('sendGuardButton').onclick = () => {
+            const num = Number(document.getElementById('sendGuardNum').value) || 1;
+            const guard_level = Number(document.getElementById('sendGuardText').value) || 0;
+            if (isNaN(guard_level) || guard_level < 0 || guard_level > 3) {
+                return
+            }
+            sendWebSocket.send(JSON.stringify({type: 'buy_guard', guard_level: guard_level, num: num, uid: "noface", uname: "圆周率弹幕系统"}));
         }
     </script>
 </body>

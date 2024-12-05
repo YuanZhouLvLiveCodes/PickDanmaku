@@ -5,114 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>弹幕显示</title>
     <link rel="stylesheet" href="assets/styles.css">
+    <script src="assets/createElement.js"></script>
+    <script src="assets/animation.js"></script>
 </head>
 <body>
     <div id="selectedMessageDisplay">
     </div>
 
     <script>
-        let isFirst = true;
         const root = document.getElementById("selectedMessageDisplay")
 
-        function show(element) {
-            console.log("ShowElement", element)
-            element.classList.remove("fadeOut")
-            element.classList.add("fadeIn")
-        }
-        function hide(element) {
-            if (element === null) {
-                return
-            }
-            console.log("hideElement", element)
-            element.classList.remove("fadeIn")
-            element.classList.add("fadeOut")
-            if (root.children.length !== 2) {
-                return
-            }
-            setTimeout(() => {
-                element.remove()
-            }, 500)
-        }
-
-        function createDanmakuElement(data) {
-            let element = document.createElement("div")
-            element.classList.add("selectedDanmaku")
-            let left = document.createElement("div")
-            left.classList.add("left")
-            let right = document.createElement("div")
-            right.classList.add("right")
-            let face = document.createElement("div")
-            face.classList.add("face")
-            let img = document.createElement("img")
-            img.src = `/face/${data.uid}`
-            img.alt = "头像"
-            let uname = document.createElement("span")
-            uname.classList.add("uname")
-            uname.textContent = data.uname
-            let content = document.createElement("div")
-            content.classList.add("content")
-            content.textContent = data.msg
-            face.appendChild(img)
-            left.appendChild(face)
-            right.appendChild(uname)
-            right.appendChild(content)
-            element.appendChild(left)
-            element.appendChild(right)
-            return element
-        }
-
-        function createGiftElement(data) {
-            let element = document.createElement("div")
-            element.classList.add("selectedDanmaku")
-            let left = document.createElement("div")
-            left.classList.add("left")
-            let right = document.createElement("div")
-            right.classList.add("right")
-            let face = document.createElement("div")
-            face.classList.add("face")
-            let img = document.createElement("img")
-            img.src = `/face/${data.uid}`
-            img.alt = "头像"
-            let uname = document.createElement("span")
-            uname.classList.add("uname")
-            uname.textContent = data.uname
-            let content = document.createElement("div")
-            content.classList.add("content")
-            content.textContent = `送出 ${data.gift_name} x ${data.num}`;
-            face.appendChild(img)
-            left.appendChild(face)
-            right.appendChild(uname)
-            right.appendChild(content)
-            element.appendChild(left)
-            element.appendChild(right)
-            return element
-        }
-
-        function appendElementLast(data) {
-            let newElement = document.createElement("div")
-            if (data.type === "danmaku") {
-                // 弹幕
-                newElement = createDanmakuElement(data)
-            } else if (data.type === "gift") {
-                // 礼物
-                newElement = createGiftElement(data)
-            }
-            show(newElement)
-            root.append(newElement)
-        }
-
-        function deleteElementFirst() {
-            hide(root.firstElementChild)
-            setTimeout(function () {
-                root.removeChild(root.firstChild)
-            }, 500)
-        }
-
-        function showNext(data) {
-            console.log("Next")
-            deleteElementFirst()
-            appendElementLast(data)
-        }
 
         let webSocket;
         (function reloadCurrentWs() {
@@ -126,7 +28,7 @@
             };
             webSocket.onmessage = function (event) {
                 const data = JSON.parse(JSON.parse(event.data));
-                showNext(data)
+                showNext(root, data)
                 console.log("Current", data)
             }
         })();
