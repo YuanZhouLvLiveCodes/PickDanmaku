@@ -14,11 +14,12 @@
 
     <script>
         const root = document.getElementById("selectedMessageDisplay")
+        const webSocketScheme = location.protocol === 'https:' ? 'wss' : 'ws';
 
 
         let webSocket;
         (function reloadCurrentWs() {
-            webSocket = new WebSocket('ws://mc.mineserv.cn:8081/currentWs');
+            webSocket = new WebSocket(webSocketScheme + '://mc.mineserv.cn:8081/currentWs');
             webSocket.onopen = () => {
                 console.log("Current", 'WebSocket 连接成功');
             };
@@ -27,7 +28,7 @@
                 setTimeout(reloadCurrentWs, 500);
             };
             webSocket.onmessage = function (event) {
-                const data = JSON.parse(JSON.parse(event.data));
+                const data = JSON.parse(event.data);
                 showNext(root, data)
                 console.log("Current", data)
             }

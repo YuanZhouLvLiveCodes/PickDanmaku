@@ -1,0 +1,51 @@
+SESSDATA = ''  # 登录账号的SESSDATA（如需完整数据支持）
+# 替换为你的直播间ID列表
+
+HTTP_HOST = 'mc.mineserv.cn'
+HTTP_PORT = 8081
+HTTP_SCHEME = 'https'
+SSL_CERT = r"D:\Tools\Alist\data\cert_mc.mineserv.cn\cert.crt"
+SSL_KEY = r"D:\Tools\Alist\data\cert_mc.mineserv.cn\cert.key"
+SSL_PASSWORD = None  # r""
+
+
+ROOM_INFOS = {
+    "bilibili": [
+        # 圆周率
+        "8487238",
+        # 叶绯页
+        "32736947",
+        # 陈木之
+        "23557863",
+        # 盐铁桶子
+        "755663",
+        # 白神遥Haruka
+        "21652717",
+        # 小小团酱
+        # "1736192992",
+        # 由米_yumie
+        # "1726452875",
+        # 方什FS
+        "1458333",
+        # Mr迷瞪
+        # "22491717"
+    ],
+    "douyu": [
+        # "762505",
+    ],
+    "huya": [
+        # "",
+    ],
+    "douyin": [
+        # "",
+    ],
+    "tiktok": [
+        # "",
+    ],
+    "twitch": [
+        # "",
+    ],
+    "youtube": [
+
+    ]
+}

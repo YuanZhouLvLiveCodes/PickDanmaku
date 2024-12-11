@@ -6,6 +6,8 @@
     <title>弹幕</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/formatString.js"></script>
+    <script src='https://fastly.jsdelivr.net/gh/Tencent/vConsole@3.8.1/dist/vconsole.min.js'></script>
+    <script>const vConsole = new VConsole();</script>
 </head>
 <body>
     <div id="base">
@@ -30,6 +32,10 @@
                     <input type="number" id="sendGuardNum" placeholder="礼物数量" value="1">
                     <button id="sendGuardButton">发送舰长</button>
                 </div>
+                <div class="sendLikeSuperAdmin">
+                    <button id="warning">发一个测试警告</button>
+                    <button id="cut">发一个测试切断直播</button>
+                </div>
             </div>
         </div>
     </div>
@@ -41,15 +47,20 @@
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
         const debug = !!urlParams.get('debug');
+        if (debug) {
+            // 展示网络选项卡后运行代码
+            vConsole.showTab("network");
+        }
+        const webSocketScheme = location.protocol === 'https:' ? 'wss' : 'ws';
 
         (function reloadWs() {
-            ws = new WebSocket('ws://mc.mineserv.cn:8081/ws');
+            ws = new WebSocket(webSocketScheme + '://mc.mineserv.cn:8081/ws');
                 ws.onopen = () => {
                 console.log("Base", 'WebSocket 连接成功');
             };
 
             ws.onmessage = (event) => {
-                const data = JSON.parse(JSON.parse(event.data));
+                const data = JSON.parse(event.data);
                 const platform_name = data.platform_name;
                 const platform = data["platform"];
                 const leftDiv = document.createElement('div');
@@ -187,6 +198,8 @@
                             } else {
                                 spanOrDivElementData.textContent = data.msg || data.error || data.message || data.data;
                             }
+                        } else {
+                            return
                         }
                     }
                 }
@@ -209,7 +222,7 @@
         })();
 
         (function reloadCurrentWs() {
-            sendWebSocket = new WebSocket('ws://mc.mineserv.cn:8081/currentWs');
+            sendWebSocket = new WebSocket(webSocketScheme + '://mc.mineserv.cn:8081/currentWs');
             sendWebSocket.onopen = () => {
                 console.log("Current", 'WebSocket 连接成功');
 
