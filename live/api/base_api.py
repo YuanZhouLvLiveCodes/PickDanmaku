@@ -2,11 +2,11 @@ import json
 import os
 from typing import Dict, Callable, Optional
 
+import aiohttp
 import requests
 
-from live.utils import dict_merge
-from live.utils.get_path import get_user_path, get_room_path
-
+from live.utils import dict_merge, format_cookies
+from live.utils.get_path import get_user_path, get_room_path, get_cookies_path
 
 
 class BasePlatform:
@@ -47,7 +47,22 @@ class BasePlatform:
         """
         return requests.get(url=url, params=params, headers=dict_merge(self.BASE_HEADER, headers), *args, **kwargs)
 
-    def request_post(self, url, data=None, json=None, headers=None, *args,  **kwargs):
+    async def request_get_aiohttp(self, url, params=None, headers=None, *args, **kwargs):
+        """
+        发送get请求
+        :param url: 请求地址
+        :param params: 请求参数
+        :param headers: 请求头
+        :param args: 其他参数
+        :param kwargs: 其他参数
+        :return: 请求结果
+        """
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url=url, params=params, headers=dict_merge(self.BASE_HEADER, headers), *args,
+                                   **kwargs) as response:
+                return await response.text()
+
+    def request_post(self, url, data=None, json=None, headers=None, *args, **kwargs):
         """
         发送post请求
         :param json: 请求json数据
@@ -57,7 +72,24 @@ class BasePlatform:
         :param kwargs: 其他参数
         :return: 请求结果
         """
-        return requests.post(url=url, data=data, json=json, headers=dict_merge(self.BASE_HEADER, headers), *args,  **kwargs)
+        return requests.post(url=url, data=data, json=json, headers=dict_merge(self.BASE_HEADER, headers), *args,
+                             **kwargs)
+
+    async def request_post_aiohttp(self, url, data=None, json=None, headers=None, *args, **kwargs):
+        """
+        发送post请求
+        :param url: 请求地址
+        :param data: 请求form数据
+        :param json: 请求json数据
+        :param headers: 请求头
+        :param args: 其他参数
+        :param kwargs: 其他参数
+        :return: 请求结果
+        """
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url=url, data=data, json=json, headers=dict_merge(self.BASE_HEADER, headers), *args,
+                                    **kwargs) as response:
+                return await response.text()
 
     def __init__(self):
         self._cookies: Dict[str, str] = {}
@@ -73,6 +105,24 @@ class BasePlatform:
     @cookies.setter
     def cookies(self, cookies: Dict[str, str]):
         self._cookies = cookies
+
+    def save_cookies(self, platform: str) -> bool:
+        cookies_path = get_cookies_path(platform=platform)
+        with open(cookies_path, "w", encoding="utf-8") as f:
+            json.dump(self._cookies, f, ensure_ascii=False, indent=4)
+            return True
+
+    def load_cookies(self, platform: str) -> bool:
+        cookies_path = get_cookies_path(platform=platform)
+        if os.path.exists(cookies_path):
+            with open(cookies_path, "r", encoding="utf-8") as f:
+                file_text = f.read()
+                try:
+                    self._cookies = json.loads(file_text)
+                except json.JSONDecodeError:
+                    self._cookies = format_cookies(file_text)
+                return True
+        return False
 
     def login(self, **kwargs):
         raise NotImplementedError("子类必须实现该方法")

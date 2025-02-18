@@ -61,8 +61,8 @@
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                const platform_name = data.platform_name;
-                const platform = data["platform"];
+                const platform_name = data.platform_name || "哔哩哔哩";
+                const platform = data["platform"] || "bilibili";
                 const leftDiv = document.createElement('div');
                 leftDiv.className = 'left';
                 const rightDiv = document.createElement('div');

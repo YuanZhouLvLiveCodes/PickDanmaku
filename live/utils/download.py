@@ -6,7 +6,7 @@ import requests
 from os import PathLike
 
 
-def download_file(download_url: str, file_path: PathLike) -> bool:
+def download_file(download_url: str, file_path: str) -> bool:
     """
     下载文件
     :param download_url: 下载链接

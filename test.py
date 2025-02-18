@@ -4,35 +4,42 @@ import asyncio
 import ssl
 import time
 
-from aiohttp import web, WSMsgType
+from aiohttp import web
 import random
-from typing import Optional, Set, Dict
+from typing import Optional
 
 import aiohttp
 import blivedm
-from aiohttp.web_ws import WebSocketResponse
 
 import blivedm.models.web as web_models
 from blivedm.handlers import logged_unknown_cmds
-from live.api import PLATFORM_NAME
-from live.api.base_api import BasePlatform
+from live.api import PLATFORM_NAME, COMMAND_NAME
 from live.api.bilibili import BiliPlatformApi
+from live.model.bilibili import BiliCommand, BiliBuyGuard, BiliSuperChat, BiliGift, BiliDanmaku
+from live.utils import get_user_path, download_file
+from live.utils.aiohttp_utils import get_ssl_context, init_session
 from live.utils.system_notice import Win11Notice
 
 from config import SESSDATA, ROOM_INFOS, HTTP_HOST, HTTP_PORT, HTTP_SCHEME, SSL_CERT, SSL_KEY
+from live.utils.ws_client.websocket_broadcast import broadcast, broadcast_text
+from live.utils.ws_client.websocket_client import WebSocketClientSet, WebSocketClientDict
+from live.utils.ws_client.websocket_danmaku import WebSocketDanmaku
+from live.utils.ws_client.websocket_echo_live import WebSocketEchoLive
+from live.utils.ws_client.websocket_pick_current import WebSocketPickCurrent
+
+api = BiliPlatformApi()
+api.login(type="qrcode")
+
+ws_echo_live: WebSocketEchoLive = WebSocketEchoLive()
+ws_pick_current: WebSocketPickCurrent = WebSocketPickCurrent()
+ws_danmaku: WebSocketDanmaku = WebSocketDanmaku()
 
 
 class PickDanmaku:
     session: Optional[aiohttp.ClientSession] = None  # HTTP 会话
-    websocket_clients_danmaku: Set[WebSocketResponse] = set()  # WebSocket 客户端列表
-    websocket_clients_current: Set[WebSocketResponse] = set()  # WebSocket 客户端列表
-    websocket_clients_type_echo: Dict[str, WebSocketResponse] = dict()  # WebSocket 客户端列表
-
-    api: BasePlatform
 
     def __init__(self):
-        self.api = BiliPlatformApi()
-        self.api.cookies = self.api.login(type="qrcode")
+        pass
 
 
     async def get_room_infos(self, refresh=False):
@@ -45,43 +52,31 @@ class PickDanmaku:
                     time.sleep(random.randint(1, 10))
                     await self.get_room_info(room_id=room_id, platform=platform, refresh=refresh)
 
-    # 初始化 HTTP 会话
-    def init_session(self) -> aiohttp.ClientSession:
-        cookies = aiohttp.CookieJar()
-        cookies.update_cookies({'SESSDATA': SESSDATA})
-        return aiohttp.ClientSession(cookie_jar=cookies)
-
-    # 主程序
-    def get_ssl_context(self) -> ssl.SSLContext:
-        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile=SSL_CERT, keyfile=SSL_KEY)
-        return ssl_context
-
     async def main(self, refresh=False):
-        global session
-        session = init_session()
-
-        await get_room_infos(refresh=refresh)
+        print(api.cookies)
+        self.session = init_session(session_data=api.cookies["SESSDATA"])
+        await self.get_room_infos(refresh=refresh)
         # 启动 Web 服务
         app = web.Application()
+
         app.add_routes([
             # 提供 index.html 页面
-            web.get('/', handle_index),
+            web.get('/', self.handle_index),
             # 提供 display.html 页面
-            web.get('/display', handle_display),
+            web.get('/display', self.handle_display),
             # 提供 WebSocket 服务
-            web.get('/ws', handle_websocket),
+            web.get('/ws', ws_danmaku.handle_websocket),
             # 提供 WebSocket 服务
-            web.get('/currentWs', handle_current),
+            web.get('/currentWs', ws_pick_current.handle_current),
             # 提供 WebSocket 服务
-            web.get('/typeComment', handle_type_echo),
+            web.get('/typeComment', ws_echo_live.handle_type_echo),
             # 处理静态资源请求
-            web.get("/face/{uid}", handle_face),
-            web.get("/face/{uid}/platform/{platform}", handle_face),
-            web.get("/room/{room_id}", handle_room),
-            web.get("/room/{room_id}/platform/{platform}", handle_room),
-            web.get("/meta", handle_room_meta),
-            web.get("/assets/{file_name}", handle_assets)
+            web.get("/face/{uid}", api.handle_face),
+            web.get("/face/{uid}/platform/{platform}", api.handle_face),
+            web.get("/room/{room_id}", self.handle_room),
+            web.get("/room/{room_id}/platform/{platform}", self.handle_room),
+            web.get("/meta", self.handle_room_meta),
+            web.get("/assets/{file_name}", self.handle_assets)
         ])
 
         runner = web.AppRunner(app)
@@ -93,9 +88,9 @@ class PickDanmaku:
 
         # 启动弹幕监听
         try:
-            await run_blive_clients()
+            await self.run_blive_clients()
         finally:
-            await session.close()
+            await self.session.close()
 
     async def handle_assets(self, request):
         """处理静态资源请求"""
@@ -104,17 +99,18 @@ class PickDanmaku:
         return web.FileResponse(asset_path)
 
     async def get_user_info(self, room_uid, platform, refresh=False):
-
+        user_path = get_user_path(platform=platform, user_id=room_uid)
         if not refresh and os.path.exists(user_path):
             with open(user_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         else:
             if platform == "bilibili":
-                user_info = await request_get(f"https://api.live.bilibili.com/live_user/v1/Master/info?uid={room_uid}",
-                                              headers={
-                                                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-                                                  "Referer": "https://space.bilibili.com/" + str(room_uid)
-                                              })
+                user_info = await self.request_get(
+                    f"https://api.live.bilibili.com/live_user/v1/Master/info?uid={room_uid}",
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+                        "Referer": "https://space.bilibili.com/" + str(room_uid)
+                    })
 
                 uid = user_info["data"]["info"]["uid"]
                 uname = user_info["data"]["info"]["uname"]
@@ -148,7 +144,7 @@ class PickDanmaku:
         else:
             platform_name = PLATFORM_NAME.get(platform, platform)
             if platform == "bilibili":
-                room_data = await request_get(
+                room_data = await self.request_get(
                     f"https://api.live.bilibili.com/room/v1/Room/get_info?room_id={str(room_id)}",
                     headers={
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
@@ -164,7 +160,7 @@ class PickDanmaku:
                 stream_status = None
                 area_name = ""
                 room_uid = ""
-            user_info = await get_user_info(room_uid, platform, refresh=refresh)
+            user_info = await self.get_user_info(room_uid, platform, refresh=refresh)
             room_uname = user_info["uname"]
             data = {
                 "room_id": room_id,
@@ -190,7 +186,7 @@ class PickDanmaku:
             refresh = False
         else:
             refresh = True
-        await get_room_infos(refresh=refresh)
+        await self.get_room_infos(refresh=refresh)
 
         return web.Response(status=200, body=json.dumps(ROOM_INFOS, ensure_ascii=False), headers={
             "Content-Type": "application/json; charset=utf-8"
@@ -200,14 +196,14 @@ class PickDanmaku:
         """处理静态资源请求"""
         room_id = request.match_info['room_id']
         platform = request.match_info.get('platform', 'bilibili')
-        data = await get_room_info(room_id=room_id, platform=platform, refresh=True)
+        data = await self.get_room_info(room_id=room_id, platform=platform, refresh=True)
         return web.Response(status=200, body=json.dumps(data, ensure_ascii=False), headers={
             "Content-Type": "application/json; charset=utf-8"
         })
 
     async def download_file(self, download_url, save_path):
         try:
-            async with session.get(download_url, timeout=10) as response:
+            async with self.session.get(download_url, timeout=10) as response:
                 with open(save_path, 'wb') as f:
                     while True:
                         chunk = await response.content.read(1024)
@@ -221,41 +217,13 @@ class PickDanmaku:
 
     async def request_get(self, url, headers=None):
         try:
-            async with session.get(url, headers=headers) as response:
+            async with self.session.get(url, headers=headers) as response:
                 return await response.json()
         except Exception as e:
             print(e)
             return None
 
-    async def handle_face(self, request):
-        """处理头像资源请求"""
-        uid = request.match_info['uid']
-        platform = request.match_info.get('platform', 'bilibili')
-        if not uid or not uid.isdigit():
-            uid = "noface"
-        parent_path = os.path.join(os.path.dirname(__file__), 'assets', "face", platform)
-        if not os.path.exists(parent_path):
-            os.mkdir(parent_path)
-        fase_path = str(os.path.join(os.path.dirname(__file__), 'assets', "face", platform, uid))
-        if uid == "noface":
-            return web.Response(status=200, body=open(fase_path, 'rb').read(), content_type="image/jpeg")
-        if not os.path.exists(fase_path):
-            print("下载头像")
-            if platform == "bilibili":
-                data = await session.get(f"https://api.bilibili.com/x/space/app/index?mid={uid}",
-                                         headers={
-                                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                                             "Referer": "https://space.bilibili.com/" + uid + "/dynamic"
-                                         }, timeout=10)
-                data_json = await data.json()
-                if data_json['code'] == 0:
-                    fase_url = data_json['data']["info"]['face']
-                    result = await download_file(fase_url, fase_path)
-                    if result:
-                        return web.Response(status=200, body=open(fase_path, 'rb').read(),
-                                            content_type=data.content_type)
-        else:
-            return web.Response(status=200, body=open(fase_path, 'rb').read(), content_type="image/jpeg")
+
 
     # 提供 index.html
     async def handle_index(self, request):
@@ -269,86 +237,11 @@ class PickDanmaku:
         display_path = os.path.join(os.path.dirname(__file__), 'display.html')
         return web.FileResponse(display_path)
 
-    # WebSocket 处理函数
-    async def handle_websocket(self, request):
-        """处理 WebSocket 连接"""
-        ws = web.WebSocketResponse()
-        await ws.prepare(request)
-        websocket_clients_danmaku.add(ws)
-        print("WebSocket 客户端已连接")
-
-        try:
-            async for msg in ws:
-                if msg.type == WSMsgType.TEXT:
-                    print(f"收到前端消息：{msg.data}")
-                    await broadcast(msg.data, websocket_clients_danmaku)
-                elif msg.type == WSMsgType.ERROR:
-                    print(f"WebSocket 错误：{ws.exception()}")
-        finally:
-            websocket_clients_danmaku.remove(ws)
-            print("WebSocket 客户端已断开")
-
-        return ws
-
-    # WebSocket 处理函数
-    async def handle_current(self, request):
-        """处理 WebSocket 连接"""
-        ws = web.WebSocketResponse()
-        await ws.prepare(request)
-        websocket_clients_current.add(ws)
-        print("当前消息 WebSocket 客户端已连接")
-
-        try:
-            async for msg in ws:
-                if msg.type == WSMsgType.TEXT:
-                    print(f"收到前端当前消息：{msg.data}")
-                    await broadcast(msg.data, websocket_clients_current)
-                elif msg.type == WSMsgType.ERROR:
-                    print(f"当前消息 WebSocket 错误：{ws.exception()}")
-        finally:
-            websocket_clients_current.remove(ws)
-            print("当前消息 WebSocket 客户端已断开")
-
-        return ws
-
-    # WebSocket 处理函数
-    async def handle_type_echo(self, request):
-        """处理 WebSocket 连接"""
-        ws = web.WebSocketResponse()
-        await ws.prepare(request)
-        print("当前消息 WebSocket 客户端已连接")
-
-        try:
-            async for msg in ws:
-                if msg.type == WSMsgType.TEXT:
-                    data = json.loads(msg.data)
-                    print(f"收到前端当前消息：{data}")
-                    from_uuid = data["from"]["uuid"]
-                    print(from_uuid)
-                    if data["action"] in ["ping"]:
-                        websocket_clients_type_echo[from_uuid] = ws
-                    elif data["action"] in ["hello"]:
-                        print("hello from: " + from_uuid)
-                        pass
-                    else:
-                        await broadcast_text(msg.data, websocket_clients_type_echo)
-
-                elif msg.type == WSMsgType.ERROR:
-                    print(f"当前消息 WebSocket 错误：{ws.exception()}")
-        finally:
-            for uuid, ws_client in websocket_clients_type_echo.items():
-                if ws == ws_client:
-                    del websocket_clients_type_echo[uuid]
-                    break
-            print("当前消息 WebSocket 客户端已断开")
-
-        return ws
-
     # 运行多个 B站直播间的弹幕监听
     async def run_blive_clients(self):
-        danmaku_clients = [blivedm.BLiveClient(room_id, session=session) for room_id in
+        danmaku_clients = [blivedm.BLiveClient(room_id, session=self.session) for room_id in
                            ROOM_INFOS.get("bilibili", [])]
-        danmaku_handler = DanmakuHandler()
+        danmaku_handler = self.DanmakuHandler()
         # current_handler = CurrentHandler()
 
         for client in danmaku_clients:
@@ -371,12 +264,12 @@ class PickDanmaku:
             room_id = client.room_id
             uname = message.uname
             uid = message.uid
-            room_info = await get_room_info(room_id, "bilibili")
+            room_info = api.get_room_info(room_id)
             room_title = room_info["room_title"]
             room_uid = room_info["room_uid"]
             room_uname = room_info["room_uname"]
 
-            data: Danmaku = Danmaku(**{
+            data: BiliDanmaku = BiliDanmaku(**{
                 "room_id": room_id,
                 "uname": uname,
                 "uid": uid,
@@ -388,7 +281,7 @@ class PickDanmaku:
                 "msg": message.msg,
             })
             print(f'[弹幕] {data}')
-            await broadcast(data, websocket_clients_danmaku)
+            await broadcast(data, ws_danmaku.websocket_set)
 
         def _on_gift(self, client: blivedm.BLiveClient, message: web_models.GiftMessage):
             # 调度异步任务
@@ -396,8 +289,8 @@ class PickDanmaku:
 
         async def handle_gift(self, client: blivedm.BLiveClient, message: web_models.GiftMessage):
             """处理礼物事件并广播给 WebSocket 客户端"""
-            room_info = await get_room_info(client.room_id, "bilibili")
-            data: Gift = Gift(**{
+            room_info = api.get_room_info(client.room_id)
+            data: BiliGift = BiliGift(**{
                 "room_id": client.room_id,
                 "uname": message.uname,
                 "uid": message.uid,
@@ -410,7 +303,7 @@ class PickDanmaku:
                 "num": message.num,
             })
             print(f'[礼物] {data}')
-            await broadcast(data, websocket_clients_danmaku)
+            await broadcast(data, ws_danmaku.websocket_set)
 
         def _on_super_chat(self, client: blivedm.BLiveClient, message: web_models.SuperChatMessage):
             # 调度异步任务
@@ -418,8 +311,8 @@ class PickDanmaku:
 
         async def handle_super_chat(self, client: blivedm.BLiveClient, message: web_models.SuperChatMessage):
             """处理醒目留言事件并广播给 WebSocket 客户端"""
-            room_info = await get_room_info(client.room_id, "bilibili")
-            data: SuperChat = SuperChat(**{
+            room_info = api.get_room_info(client.room_id)
+            data: BiliSuperChat = BiliSuperChat(**{
                 "room_id": client.room_id,
                 "uname": message.uname,
                 "uid": message.uid,
@@ -432,7 +325,7 @@ class PickDanmaku:
                 "price": message.price,
             })
             print(f'[醒目留言] {data}')
-            await broadcast(data, websocket_clients_danmaku)
+            await broadcast(data, ws_danmaku.websocket_set)
 
         def _on_buy_guard(self, client: blivedm.BLiveClient, message: web_models.GuardBuyMessage):
             # 调度异步任务
@@ -440,8 +333,8 @@ class PickDanmaku:
 
         async def handle_buy_guard(self, client: blivedm.BLiveClient, message: web_models.GuardBuyMessage):
             """处理上舰事件并广播给 WebSocket 客户端"""
-            room_info = await get_room_info(client.room_id, "bilibili")
-            data: BuyGuard = BuyGuard(**{
+            room_info = api.get_room_info(client.room_id)
+            data: BiliBuyGuard = BiliBuyGuard(**{
                 "room_id": client.room_id,
                 "uname": message.username,
                 "uid": message.uid,
@@ -455,7 +348,7 @@ class PickDanmaku:
                 "price": message.price,
             })
             print(f'[上舰] {data}')
-            await broadcast(data, websocket_clients_danmaku)
+            await broadcast(data, ws_danmaku.websocket_set)
 
         def handle(self, client: blivedm.BLiveClient, command: dict):
             cmd = command.get('cmd', '')
@@ -485,11 +378,11 @@ class PickDanmaku:
         async def handle_others(self, client: blivedm.BLiveClient, command: dict):
             cmd = command["cmd"]
             room_id = client.room_id
-            room_info = await get_room_info(room_id, "bilibili", refresh=cmd == "ROOM_CHANGE")
+            room_info = api.get_room_info(room_id, refresh=cmd == "ROOM_CHANGE")
             room_uname = room_info["room_uname"]
             room_uid = room_info["room_uid"]
             room_title = room_info["room_title"]
-            data: Command = Command(**{
+            data: BiliCommand = BiliCommand(**{
                 "room_id": room_id,
                 "room_uname": room_uname,
                 "room_uid": room_uid,
@@ -514,29 +407,10 @@ class PickDanmaku:
                 Win11Notice(title=f'房间 {room_uname}({room_title}) 被切断直播', body="请检查直播状态").show_notice()
             print(
                 f'[{COMMAND_NAME["bilibili"][cmd] if cmd in COMMAND_NAME["bilibili"] else cmd}]【{room_uname}|{room_title}】 {data}')
-            await broadcast(data, websocket_clients_danmaku)
-
-    async def broadcast(self, message: Message, websocket_clients: Set[WebSocketResponse]):
-        """向所有 WebSocket 客户端广播消息"""
-        if websocket_clients:
-            payload = str(message)
-            # print("开始广播", payload)
-            result = await asyncio.gather(*[ws.send_str(payload) for ws in websocket_clients])
-            # print("广播结果", websocket_clients, result)
-
-    async def broadcast_text(self, payload: str, websocket_clients: Dict[str, WebSocketResponse]):
-        """向所有 WebSocket 客户端广播消息"""
-        if websocket_clients:
-            payload_json = json.loads(payload)
-            rather_than_uuid = payload_json["from"]["name"]
-            # payload = json.dumps(str(message))
-            print("开始广播" + str(payload))
-            result = await asyncio.gather(
-                *[ws.send_str(payload) for uuid, ws in websocket_clients.items() if uuid != rather_than_uuid])
-            # print("广播结果", websocket_clients, result)
+            await broadcast(data, ws_danmaku.websocket_set)
 
 
 if __name__ == '__main__':
     pick_danmaku = PickDanmaku()
     asyncio.run(pick_danmaku.main(refresh=False))
-    # asyncio.run(main(refresh=True))
+    # asyncio.run(pick_danmaku.main(refresh=True))

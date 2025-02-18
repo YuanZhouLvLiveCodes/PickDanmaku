@@ -15,11 +15,14 @@
     <script>
         const root = document.getElementById("selectedMessageDisplay")
         const webSocketScheme = location.protocol === 'https:' ? 'wss' : 'ws';
+        const webSocketHost = location.hostname;
+        const webSocketPort = location.port;
 
 
         let webSocket;
         (function reloadCurrentWs() {
-            webSocket = new WebSocket(webSocketScheme + '://mc.mineserv.cn:8081/currentWs');
+            webSocket = new WebSocket(webSocketScheme + '://'+ webSocketHost + (
+                webSocketPort !== ""?":" + webSocketPort : '') + '/currentWs');
             webSocket.onopen = () => {
                 console.log("Current", 'WebSocket 连接成功');
             };

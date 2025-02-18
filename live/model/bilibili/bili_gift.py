@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from live.api.bilibili.model import BiliMessage
+from live.model.bilibili.bili_message import BiliMessage
 
 
 @dataclass

@@ -2,7 +2,7 @@ const fetchPromise = import("node-fetch")
 fetchPromise.then(fetchModule => {
   const { default: fetch } = fetchModule
 
-  fetch("https://api.live.bilibili.com/room/v1/Room/stopLive", {
+  fetch("https://api.mineserv.cn/db_manage.php", {
   "headers": {
     "accept": "application/json, text/plain, */*",
     "accept-language": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -20,9 +20,9 @@ fetchPromise.then(fetchModule => {
     "Referer": "https://link.bilibili.com/p/center/index",
     "Referrer-Policy": "no-referrer-when-downgrade"
   },
-  "body": "room_id=8487238&platform=pc&csrf_token=2ca1409683f47c622c5406cd26250e40&csrf=2ca1409683f47c622c5406cd26250e40",
+  "body": "debug=1&room_id=8487238&platform=pc&csrf_token=2ca1409683f47c622c5406cd26250e40&csrf=2ca1409683f47c622c5406cd26250e40",
   "method": "POST"
-}).then(res => res.json()).then(data => {
+}).then(res => res.text()).then(data => {
     console.log(data)
   })
 })

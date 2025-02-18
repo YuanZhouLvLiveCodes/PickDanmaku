@@ -11,7 +11,7 @@ from live.utils.download import (
 from live.utils.format_string import (
     format_cookies
 )
-from live.utils.qrcode import (
+from live.utils.gen_qrcode import (
     to_qrcode,
     show_image,
     read_py_png_image
